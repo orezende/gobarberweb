@@ -5,6 +5,7 @@ interface User {
   id: string;
   avatarUrl: string;
   name: string;
+  email: string;
 }
 
 interface AuthState {
@@ -21,6 +22,7 @@ interface AuthContextData {
   user: User;
   signIn(credentials: SignInCredentials): Promise<void>;
   signOut(): void;
+  updateUser(userData: User): void;
 }
 
 const AuthContext = createContext<AuthContextData>({} as AuthContextData);
@@ -31,6 +33,8 @@ export const AuthProvider: React.FC = ({ children }) => {
     const user = localStorage.getItem('@GoBarber:user');
 
     if (user && token) {
+      api.defaults.headers.authorization = `Bearer ${token}`;
+
       return { token, user: JSON.parse(user) };
     }
 
@@ -48,8 +52,21 @@ export const AuthProvider: React.FC = ({ children }) => {
     localStorage.setItem('@GoBarber:token', token);
     localStorage.setItem('@GoBarber:user', JSON.stringify(user));
 
+    api.defaults.headers.authorization = `Bearer ${token}`;
+
     setAuthData({ token, user });
   }, []);
+
+  const updateUser = useCallback(
+    (userData: User) => {
+      localStorage.setItem('@GoBarber:user', JSON.stringify(userData));
+      setAuthData({
+        token: authData.token,
+        user: userData,
+      });
+    },
+    [authData],
+  );
 
   const signOut = useCallback(() => {
     localStorage.removeItem('@GoBarber:token');
@@ -58,7 +75,9 @@ export const AuthProvider: React.FC = ({ children }) => {
     setAuthData({} as AuthState);
   }, []);
   return (
-    <AuthContext.Provider value={{ user: authData.user, signIn, signOut }}>
+    <AuthContext.Provider
+      value={{ user: authData.user, signIn, signOut, updateUser }}
+    >
       {children}
     </AuthContext.Provider>
   );
